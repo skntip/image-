@@ -4,8 +4,7 @@ import com.pprayash.jpadata.entity.Image;
 import com.pprayash.jpadata.entity.Product;
 import com.pprayash.jpadata.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -45,7 +44,8 @@ public class ProductController {
                 Image image = new Image();
                 image.setFileName(fileName);
                 image.setFileType(file.getContentType());
-                product.addImage(image); // maintains both sides
+
+                product.addImage(image); // sets both sides of relation
             } catch (IOException e) {
                 return new ResponseEntity<>("Image upload failed: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
             }
@@ -53,6 +53,38 @@ public class ProductController {
 
         productRepository.save(product);
         return new ResponseEntity<>("Product added successfully", HttpStatus.CREATED);
+    }
+
+
+    @GetMapping("/images/{filename}")
+    public ResponseEntity<byte[]> getImage(@PathVariable String filename) {
+        try {
+            Path imagePath = Paths.get(uploadDir, filename);
+            if (!Files.exists(imagePath)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            byte[] imageBytes = Files.readAllBytes(imagePath);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(getMediaTypeForFileName(filename));
+
+            return new ResponseEntity<>(imageBytes, headers, HttpStatus.OK);
+
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+
+    private MediaType getMediaTypeForFileName(String filename) {
+        String ext = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
+        switch (ext) {
+            case "png": return MediaType.IMAGE_PNG;
+            case "jpg":
+            case "jpeg": return MediaType.IMAGE_JPEG;
+            case "gif": return MediaType.IMAGE_GIF;
+            default: return MediaType.APPLICATION_OCTET_STREAM;
+        }
     }
 }
 
